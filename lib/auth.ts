@@ -1,16 +1,50 @@
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
+import EmailProvider from 'next-auth/providers/email'
 import { createServerSupabaseClient } from './supabase'
+import { sendVerificationEmail } from './email'
 
-// Mailing list function
+// Resend Audiences mailing list function
 async function addToMailingList(email: string, name?: string) {
   try {
-    console.log(`Adding ${email} to mailing list`)
-    // TODO: Integrate with your preferred mailing list service
-    // Examples: Mailchimp, ConvertKit, Resend Audiences, etc.
-    return true
+    console.log(`Adding ${email} to Resend mailing list`)
+    
+    // Only try mailing list if we have valid API key
+    if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 'your_resend_api_key_here') {
+      console.log('⚠️ Resend API key not configured, skipping mailing list')
+      return true
+    }
+
+    if (!process.env.MAILING_LIST_ID || process.env.MAILING_LIST_ID === 'your_mailing_list_id_here') {
+      console.log('⚠️ Mailing list ID not configured, skipping mailing list')
+      return true
+    }
+    
+    // Add to Resend Audiences
+    const response = await fetch(`https://api.resend.com/audiences/${process.env.MAILING_LIST_ID}/contacts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: email,
+        first_name: name?.split(' ')[0] || '',
+        last_name: name?.split(' ').slice(1).join(' ') || '',
+        unsubscribed: false
+      })
+    })
+
+    if (response.ok) {
+      console.log(`✅ Successfully added ${email} to mailing list`)
+      return true
+    } else {
+      const error = await response.text()
+      console.error(`❌ Failed to add ${email} to mailing list:`, error)
+      return false
+    }
   } catch (error) {
-    console.error('Failed to add to mailing list:', error)
+    console.error('❌ Mailing list error:', error)
     return false
   }
 }
@@ -21,21 +55,20 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-    // TODO: Add EmailProvider back once Resend API key is configured
-    // EmailProvider({
-    //   server: {
-    //     host: 'smtp.resend.com',
-    //     port: 587,
-    //     auth: {
-    //       user: 'resend',
-    //       pass: process.env.RESEND_API_KEY,
-    //     },
-    //   },
-    //   from: process.env.EMAIL_FROM,
-    //   sendVerificationRequest: async ({ identifier: email, url }) => {
-    //     await sendVerificationEmail(email, url)
-    //   },
-    // }),
+    EmailProvider({
+      server: {
+        host: 'smtp.resend.com',
+        port: 587,
+        auth: {
+          user: 'resend',
+          pass: process.env.RESEND_API_KEY,
+        },
+      },
+      from: process.env.EMAIL_FROM,
+      sendVerificationRequest: async ({ identifier: email, url }) => {
+        await sendVerificationEmail(email, url)
+      },
+    }),
   ],
   session: {
     strategy: 'jwt',
