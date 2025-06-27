@@ -50,6 +50,7 @@ export default function SignInPage() {
     
     try {
       // First, check if user exists in our database
+      console.log('Checking if user exists:', email)
       const checkUserResponse = await fetch('/api/auth/check-user', {
         method: 'POST',
         headers: {
@@ -58,14 +59,25 @@ export default function SignInPage() {
         body: JSON.stringify({ email }),
       })
       
-      const { exists } = await checkUserResponse.json()
+      console.log('Response status:', checkUserResponse.status)
+      
+      if (!checkUserResponse.ok) {
+        throw new Error(`HTTP error! status: ${checkUserResponse.status}`)
+      }
+      
+      const responseData = await checkUserResponse.json()
+      console.log('Response data:', responseData)
+      const { exists } = responseData
       
       if (!exists) {
         // User doesn't exist, show create account message
+        console.log('User does not exist, showing create account message')
         setShowCreateAccount(true)
         setIsLoading(false)
         return
       }
+      
+      console.log('User exists, proceeding with sign-in')
       
       // User exists, proceed with sign-in
       const result = await signIn('email', { 
@@ -83,6 +95,8 @@ export default function SignInPage() {
     } catch (error) {
       console.error('Sign in error:', error)
       setEmailError('Something went wrong. Please try again.')
+      // If there's an error checking user existence, show create account option as fallback
+      setShowCreateAccount(true)
     } finally {
       setIsLoading(false)
     }
