@@ -49,6 +49,25 @@ export default function SignInPage() {
     setShowCreateAccount(false)
     
     try {
+      // First, check if user exists in our database
+      const checkUserResponse = await fetch('/api/auth/check-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      })
+      
+      const { exists } = await checkUserResponse.json()
+      
+      if (!exists) {
+        // User doesn't exist, show create account message
+        setShowCreateAccount(true)
+        setIsLoading(false)
+        return
+      }
+      
+      // User exists, proceed with sign-in
       const result = await signIn('email', { 
         email, 
         redirect: false,
@@ -57,13 +76,7 @@ export default function SignInPage() {
       
       if (result?.error) {
         console.log('Sign in error:', result.error) // For debugging
-        // Check if it's likely a user doesn't exist error
-        if (result.error === 'EmailSignin' || result.error === 'Signin' || result.error === 'EmailSignInError') {
-          setShowCreateAccount(true)
-          setEmailError('')
-        } else {
-          setEmailError('Failed to send magic link. Please try again.')
-        }
+        setEmailError('Failed to send magic link. Please try again.')
       } else {
         setEmailSent(true)
       }
