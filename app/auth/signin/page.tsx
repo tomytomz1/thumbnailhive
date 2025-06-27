@@ -4,9 +4,10 @@ import React from 'react'
 import { signIn } from 'next-auth/react'
 import { useState, useEffect } from 'react'
 import { Button } from '../../../components/ui/Button'
-import { Hexagon, Mail, Chrome, ArrowLeft, Eye, EyeOff, Sparkles, Zap, TrendingUp, CheckCircle, User } from 'lucide-react'
+import { SignUpModal } from '../../../components/ui/SignUpModal'
+import { Hexagon, Mail, Chrome, ArrowLeft, Eye, EyeOff, Sparkles, Zap, TrendingUp, CheckCircle, User, UserPlus } from 'lucide-react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -15,7 +16,10 @@ export default function SignInPage() {
   const [emailError, setEmailError] = useState('')
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [signUpData, setSignUpData] = useState<any>(null)
+  const [showCreateAccount, setShowCreateAccount] = useState(false)
+  const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false)
   const searchParams = useSearchParams()
+  const router = useRouter()
   const isFromSignUp = searchParams.get('signup') === 'true'
   const error = searchParams.get('error')
 
@@ -42,6 +46,7 @@ export default function SignInPage() {
     e.preventDefault()
     setIsLoading(true)
     setEmailError('')
+    setShowCreateAccount(false)
     
     try {
       const result = await signIn('email', { 
@@ -51,7 +56,14 @@ export default function SignInPage() {
       })
       
       if (result?.error) {
-        setEmailError('Failed to send magic link. Please try again.')
+        console.log('Sign in error:', result.error) // For debugging
+        // Check if it's likely a user doesn't exist error
+        if (result.error === 'EmailSignin' || result.error === 'Signin' || result.error === 'EmailSignInError') {
+          setShowCreateAccount(true)
+          setEmailError('')
+        } else {
+          setEmailError('Failed to send magic link. Please try again.')
+        }
       } else {
         setEmailSent(true)
       }
@@ -66,6 +78,12 @@ export default function SignInPage() {
   const handleGoogleSignIn = () => {
     setIsGoogleLoading(true)
     signIn('google', { callbackUrl: '/dashboard' })
+  }
+
+  const handleSignUpSuccess = (email: string) => {
+    // Close modal and refresh page to show sign-up success state
+    setIsSignUpModalOpen(false)
+    router.push('/auth/signin?signup=true')
   }
 
   if (emailSent) {
@@ -99,11 +117,18 @@ export default function SignInPage() {
             >
               Try Different Email
             </Button>
-          </div>
-        </div>
+                  </div>
       </div>
-    )
-  }
+
+      {/* Sign Up Modal */}
+      <SignUpModal
+        isOpen={isSignUpModalOpen}
+        onClose={() => setIsSignUpModalOpen(false)}
+        onSuccess={handleSignUpSuccess}
+      />
+    </div>
+  )
+}
 
   return (
     <div className="min-h-screen bg-dark-950 flex items-center justify-center px-4 py-4 relative overflow-hidden">
@@ -266,6 +291,29 @@ export default function SignInPage() {
                   </p>
                 )}
                 
+                {/* Create Account Message */}
+                {showCreateAccount && (
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
+                    <div className="flex items-center justify-center space-x-2 text-blue-400 mb-2">
+                      <UserPlus className="w-5 h-5" />
+                      <span className="font-medium">Account Not Found</span>
+                    </div>
+                    <p className="text-sm text-blue-300 mb-3">
+                      We couldn't find an account with <strong>{email}</strong>. 
+                      Would you like to create a new account?
+                    </p>
+                    <Button
+                      onClick={() => setIsSignUpModalOpen(true)}
+                      variant="outline"
+                      className="w-full border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:border-blue-400"
+                      size="sm"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Create Account
+                    </Button>
+                  </div>
+                )}
+                
                 <Button
                   type="submit"
                   disabled={isLoading || !email}
@@ -292,15 +340,26 @@ export default function SignInPage() {
           <div className="hidden lg:block absolute left-1/2 transform -translate-x-1/2 w-px bg-dark-700" style={{ top: '35%', transform: 'translate(-50%, -50%)', height: '60%' }}></div>
 
           {/* Footer */}
-          <div className="mt-4 text-center text-xs text-dark-400 border-t border-dark-700 pt-4">
-            By signing in, you agree to our{' '}
-            <Link href="/terms" className="text-primary-400 hover:text-primary-300">
-              Terms of Service
-            </Link>{' '}
-            and{' '}
-            <Link href="/privacy" className="text-primary-400 hover:text-primary-300">
-              Privacy Policy
-            </Link>
+          <div className="mt-4 text-center border-t border-dark-700 pt-4 space-y-2">
+            <div className="text-sm text-dark-300">
+              Don't have an account?{' '}
+              <button
+                onClick={() => setIsSignUpModalOpen(true)}
+                className="text-primary-400 hover:text-primary-300 underline font-medium"
+              >
+                Create one here
+              </button>
+            </div>
+            <div className="text-xs text-dark-400">
+              By signing in, you agree to our{' '}
+              <Link href="/terms" className="text-primary-400 hover:text-primary-300">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="text-primary-400 hover:text-primary-300">
+                Privacy Policy
+              </Link>
+            </div>
           </div>
         </div>
 
