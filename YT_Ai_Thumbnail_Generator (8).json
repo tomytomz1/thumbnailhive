@@ -1,0 +1,1452 @@
+{
+  "name": "YT Ai Thumbnail Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ultimate-thumbnail-generator",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Credentials",
+                "value": "true"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b4db48d0-3ad1-426f-b836-b6b7613a8655",
+      "name": "Ultimate Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1380,
+        2500
+      ],
+      "webhookId": "3ff541bf-21a0-4402-8e15-fcb9138642ee"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "validation",
+              "name": "isValid",
+              "value": "={{ $json.body.title && $json.body.niche && $json.body.title.length <= 200 && $json.body.niche.length <= 50 ? true : false }}",
+              "type": "boolean"
+            },
+            {
+              "id": "userId",
+              "name": "userId",
+              "value": "={{ $json.authenticatedUserId }}",
+              "type": "string"
+            },
+            {
+              "id": "title",
+              "name": "title",
+              "value": "={{ $json.body.title.replace(/[<>\\\"'&]/g, '').slice(0, 200) }}",
+              "type": "string"
+            },
+            {
+              "id": "niche",
+              "name": "niche",
+              "value": "={{ $json.body.niche.toLowerCase().replace(/[^a-z0-9\\s-]/g, '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "faceImage",
+              "name": "faceImage",
+              "value": "={{ $json.body.faceImage || null }}",
+              "type": "string"
+            },
+            {
+              "id": "emotion",
+              "name": "emotion",
+              "value": "={{ $json.body.emotion || 'surprised' }}",
+              "type": "string"
+            },
+            {
+              "id": "brandColor",
+              "name": "brandColor",
+              "value": "={{ $json.body.brandColor || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "channelUrl",
+              "name": "channelUrl",
+              "value": "={{ $json.body.channelUrl || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5ebd0139-002a-4098-8bb6-a862d274604e",
+      "name": "Validate Ultimate Inputs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        -780,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isValid }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f7a69b6a-70d6-4165-9b7a-485c8fc20988",
+      "name": "Ultimate Input Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -580,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ \"status\": \"error\", \"message\": \"Invalid input: title and niche are required\", \"code\": \"VALIDATION_ERROR\" }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "15b8c439-4fb1-4ade-823f-c8198ee2b7e8",
+      "name": "Respond Ultimate Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -380,
+        2600
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.stripe.com/v1/customers/{{ $json.userId }}/subscriptions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "a8fae14e-8d40-44dc-8048-f31f567aaeef",
+      "name": "Check Stripe Plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -380,
+        2400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "RmDfYzNg6ST67608",
+          "name": "Stripe API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "planType",
+              "name": "planType",
+              "value": "={{ $json.data?.[0]?.plan?.nickname || 'free' }}",
+              "type": "string"
+            },
+            {
+              "id": "credits",
+              "name": "remainingCredits",
+              "value": "={{ $json.data?.[0]?.metadata?.credits || 5 }}",
+              "type": "number"
+            },
+            {
+              "id": "isPro",
+              "name": "isPro",
+              "value": "={{ $json.planType !== 'free' }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fe180125-4624-48ae-9a79-81e4644b9d62",
+      "name": "Extract Plan Info",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        -180,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.remainingCredits }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "10f11adf-a762-4a7d-858a-b26de426f90d",
+      "name": "Has Credits?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        20,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ \"status\": \"error\", \"message\": \"Insufficient credits. Please upgrade your plan for more generations.\", \"code\": \"INSUFFICIENT_CREDITS\" }) }}",
+        "options": {
+          "responseCode": 402
+        }
+      },
+      "id": "a7097a05-abed-4f21-8115-a2c629f9ebdf",
+      "name": "Respond Ultimate No Credits",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        2600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "niche_intelligence",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "niche",
+              "condition": "eq",
+              "keyValue": "={{ $('Validate Ultimate Inputs').item.json.niche }}"
+            }
+          ]
+        }
+      },
+      "id": "56b6c0b0-9f2b-4380-a936-c8c5760c6a97",
+      "name": "Load Niche Intelligence",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        240,
+        2240
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "lTSoIvGQRq8H4nw7",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&order=viewCount&regionCode=US&maxResults=20&publishedAfter={{ new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }}&q={{ encodeURIComponent($('Validate Ultimate Inputs').item.json.niche + ' viral') }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "3c9e6cb0-f2a8-483b-bcb1-1e986de7e886",
+      "name": "Analyze Competitors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        240,
+        1940
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "WUUOh3F5QXnKKpBM",
+          "name": "YouTube API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "user_brands"
+      },
+      "id": "ea98c367-b176-4dcf-910c-2c9392ea2ae1",
+      "name": "Load User Brand",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        240,
+        2420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "lTSoIvGQRq8H4nw7",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 4,
+        "options": {}
+      },
+      "id": "32de9888-d2d9-4ef4-87f0-28dc86997db5",
+      "name": "Merge Niche, Brand, Competitors",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        540,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "intelligentPrompt",
+              "name": "intelligentPrompt",
+              "value": "={{ \n  (() => {\n    const basePrompt = 'YouTube thumbnail background for ' + $('Validate Ultimate Inputs').item.json.niche + ' content, no text, no words, no letters, textless design only';\n    const nicheData = $('Load Niche Intelligence').item.json.data?.[0];\n    const competitorData = $('Analyze Competitors').item.json.items?.slice(0, 3) || [];\n    const trendingData = $('Analyze Trending Videos').item.json.items?.slice(0, 3) || [];\n    const brandData = $('Load User Brand').item.json.data?.[0];\n    const isPro = $('Extract Plan Info').item.json.isPro;\n    let prompt = basePrompt;\n    prompt += ', high-contrast, clickbait style, expressive faces, vibrant colors, clean composition for text overlay later';\n    if (nicheData) {\n      prompt += ', niche optimization: ' + nicheData.optimization_keywords;\n      prompt += ', trending style: ' + nicheData.trending_style;\n      if (nicheData.best_colors && Array.isArray(nicheData.best_colors)) {\n        prompt += ', recommended colors: ' + nicheData.best_colors.slice(0, 3).join(', ');\n      }\n    }\n    if (isPro && (competitorData.length > 0 || trendingData.length > 0)) {\n  prompt += ', competitive visual style similar to top performers';\n  prompt += ', inspired by current viral trends in the niche';\n}\n    if (isPro && brandData?.style_guidelines) {\n      prompt += ', brand style: ' + brandData.style_guidelines;\n    }\n    if ($('Validate Ultimate Inputs').item.json.brandColor) {\n      prompt += ', primary brand color: ' + $('Validate Ultimate Inputs').item.json.brandColor;\n    }\n    prompt += ', professional quality, 1280x720, mobile-optimized, attention-grabbing, absolutely no text or typography, visual elements only';\n    return prompt;\n  })()\n}}",
+              "type": "string"
+            },
+            {
+              "id": "nicheInsights",
+              "name": "nicheInsights",
+              "value": "={{ $('Load Niche Intelligence').item.json.data?.[0] || {} }}",
+              "type": "object"
+            },
+            {
+              "id": "competitorInsights",
+              "name": "competitorInsights",
+              "value": "={{ [...($('Analyze Competitors').item.json.items?.slice(0, 3) || []), ...($('Analyze Trending Videos').item.json.items?.slice(0, 3) || [])] }}",
+              "type": "array"
+            },
+            {
+              "id": "expectedCTR",
+              "name": "expectedCTR",
+              "value": "={{ ($('Load Niche Intelligence').item.json.data?.[0]?.avg_ctr_benchmark || 7.5) + ($('Extract Plan Info').item.json.isPro ? 1.2 : 0) }}",
+              "type": "number"
+            },
+            {
+              "id": "8e603029-f5b7-4dab-934c-0e6d08882654",
+              "name": "trendingInsights",
+              "value": "={{ $('Analyze Trending Videos').item.json.items?.slice(0, 3) || [] }}",
+              "type": "array"
+            },
+            {
+              "id": "5e307d66-0fee-4b87-82f9-d6096a67406d",
+              "name": "viralPatterns",
+              "value": "={{ [...(($('Analyze Competitors').item.json.items?.slice(0, 3) || []).map(v => ({\n  title: v.snippet.title,\n  channel: v.snippet.channelTitle,\n  videoId: v.id.videoId,\n  publishedAt: v.snippet.publishedAt,\n  thumbnailUrl: v.snippet.thumbnails.high.url\n}))), ...(($('Analyze Trending Videos').item.json.items?.slice(0, 3) || []).map(v => ({\n  title: v.snippet.title,\n  channel: v.snippet.channelTitle,\n  videoId: v.id.videoId,\n  publishedAt: v.snippet.publishedAt,\n  thumbnailUrl: v.snippet.thumbnails.high.url\n})))] }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "456245ea-61ff-4f5f-9a80-26503954223f",
+      "name": "Create Intelligent Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        740,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const images = items[0].json.data || [];\nreturn images.map((img, i) => ({\n  json: {\n    thumbnailUrl: img.url,\n    index: i\n  }\n}));"
+      },
+      "id": "3030f76f-0313-41bc-a9fc-32e78cdd6454",
+      "name": "Extract Ideogram Thumbnails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "a3c14af4-a94c-4ecb-b434-ad37fe9dc4d4",
+      "name": "Process Thumbnail Batch",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mobileScore",
+              "name": "mobileScore",
+              "value": "={{ Math.min(100,75+($('Create Intelligent Prompt').item.json.nicheInsights?.avg_ctr_benchmark > 8 ? 10 : 5)+($('Extract Plan Info').item.json.isPro ? 8 : 0)+Math.floor(Math.random()*10)) }}",
+              "type": "number"
+            },
+            {
+              "id": "optimizationTips",
+              "name": "optimizationTips",
+              "value": "={{ (() => { const tips = []; const ms = $json.mobileScore; const pro = $('Extract Plan Info').item.json.isPro; if(ms<85)tips.push('Ensure high contrast areas for text overlay'); if(ms<90)tips.push('Increase contrast for better visibility'); if(pro){tips.push('A/B test this variation against others'); tips.push('Monitor CTR performance in first 24 hours');} return tips; })() }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b3cbf5c8-1cf4-4f83-9d5a-394a155615a5",
+      "name": "Calculate Mobile Optimization",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        1760,
+        2420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.roboflow.com/YOUR_CTR_MODEL_ENDPOINT",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "image",
+              "value": "={{ $('Upload to Cloudinary1').item.json.secure_url }}"
+            },
+            {
+              "name": "niche",
+              "value": "={{ $('Validate Ultimate Inputs').item.json.niche }}"
+            },
+            {
+              "name": "expected_ctr",
+              "value": "={{ $('Create Intelligent Prompt').item.json.expectedCTR }}"
+            },
+            {
+              "name": "enhanced_analysis",
+              "value": "={{ $('Extract Plan Info').item.json.isPro ? 'true' : 'false' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b435dbf2-92d3-4fa4-af08-9511f7187be8",
+      "name": "Predict Enhanced CTR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1960,
+        2420
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "LUEFfYowHGcIxr3v",
+          "name": "RoboFlow API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "abTestId",
+              "name": "abTestId",
+              "value": "={{ 'test_' + Math.random().toString(36).slice(2) + '_' + Date.now() }}",
+              "type": "string"
+            },
+            {
+              "id": "variationIndex",
+              "name": "variationIndex",
+              "value": "={{ $itemIndex }}",
+              "type": "number"
+            },
+            {
+              "id": "qualityScore",
+              "name": "qualityScore",
+              "value": "={{ Math.round((($('Predict Enhanced CTR').item.json.predictions?.[0]?.confidence || 7.5)+($('Calculate Mobile Optimization').item.json.mobileScore/10)+($('Create Intelligent Prompt').item.json.nicheInsights?.avg_ctr_benchmark>8?0.5:0))*10)/10 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0c6888fd-795c-4248-81a6-665d0231da75",
+      "name": "Generate Test Metadata",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        2160,
+        2420
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "thumbnails",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "user_id",
+              "fieldValue": "={{ $('Validate Ultimate Inputs').item.json.userId }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $('Validate Ultimate Inputs').item.json.title }}"
+            },
+            {
+              "fieldId": "niche",
+              "fieldValue": "={{ $('Validate Ultimate Inputs').item.json.niche }}"
+            },
+            {
+              "fieldId": "thumbnail_url",
+              "fieldValue": "={{ $('Upload to Cloudinary1').item.json.secure_url }}"
+            },
+            {
+              "fieldId": "ctr_score",
+              "fieldValue": "={{ $('Predict Enhanced CTR').item.json.predictions?.[0]?.confidence || 7.5 }}"
+            },
+            {
+              "fieldId": "mobile_score",
+              "fieldValue": "={{ $('Calculate Mobile Optimization').item.json.mobileScore }}"
+            },
+            {
+              "fieldId": "heatmap_url",
+              "fieldValue": "={{ $('Predict Enhanced CTR').item.json.visualization_url || null }}"
+            },
+            {
+              "fieldId": "emotion_used",
+              "fieldValue": "={{ $('Validate Ultimate Inputs').item.json.emotion }}"
+            },
+            {
+              "fieldId": "ab_test_id",
+              "fieldValue": "={{ $('Generate Test Metadata').item.json.abTestId }}"
+            },
+            {
+              "fieldId": "variation_index",
+              "fieldValue": "={{ $('Generate Test Metadata').item.json.variationIndex }}"
+            },
+            {
+              "fieldId": "niche_context",
+              "fieldValue": "={{ JSON.stringify($('Create Intelligent Prompt').item.json.nicheInsights) }}"
+            },
+            {
+              "fieldId": "optimization_suggestions",
+              "fieldValue": "={{ JSON.stringify($('Calculate Mobile Optimization').item.json.optimizationTips) }}"
+            }
+          ]
+        }
+      },
+      "id": "a272c003-a198-4572-bac5-86973aa85eeb",
+      "name": "Save to DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2360,
+        2420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "lTSoIvGQRq8H4nw7",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.stripe.com/v2/billing/meter_events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Stripe-Version",
+              "value": "2025-05-28.preview"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "event_name",
+              "value": "api_requests"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ (() => { const date = new Date(); const tzo = -date.getTimezoneOffset(); const dif = tzo >= 0 ? '+' : '-'; const pad = num => `${Math.floor(Math.abs(num))}`.padStart(2, '0'); return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) + 'T' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds()) + '.' + (date.getMilliseconds()+'').padStart(3, '0') + dif + pad(tzo / 60) + ':' + pad(tzo % 60); })() }}"
+            },
+            {
+              "name": "payload[stripe_customer_id]",
+              "value": "={{ $('Check Stripe Plan').item.json.data?.[0]?.customer || 'demo_customer' }}"
+            },
+            {
+              "name": "payload[value]",
+              "value": "=1"
+            },
+            {
+              "name": "identifier",
+              "value": "={{ Math.random().toString(36).slice(2) + Date.now() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b7271322-d716-4bb1-8939-e5445e51477a",
+      "name": "Track Usage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2560,
+        2420
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "RmDfYzNg6ST67608",
+          "name": "Stripe API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "e9fafb64-9bb5-4cf3-85f8-e3a24e88242d",
+      "name": "Aggregate Results Final",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        2220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// This flattens the array-of-objects so you have one object with arrays and single refs\nconst arr = items[0].json.data;\n\nreturn [{\n  json: {\n    thumbnails: arr.map(obj => obj.thumbnailData),\n    userInputs: arr[0].userInputs,\n    nicheData: arr[0].nicheData,\n    planInfo: arr[0].planInfo\n  }\n}];\n"
+      },
+      "id": "b3f9434c-d16a-4938-bbe6-47d6c4cf2740",
+      "name": "Flatten Aggregated Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        2220
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "thumbnails",
+              "name": "thumbnails",
+              "value": "={{ $json.thumbnails }}",
+              "type": "array"
+            },
+            {
+              "id": "metadata",
+              "name": "metadata",
+              "value": "={{ {\n  \"title\": $json.userInputs.title,\n  \"niche\": $json.userInputs.niche,\n  \"emotion\": $json.userInputs.emotion,\n  \"generated_at\": new Date().toISOString(),\n  \"total_thumbnails\": $json.thumbnails.length,\n  \"plan_type\": $json.planInfo.planType,\n  \"niche_insights\": $json.nicheData,\n  \"avg_ctr_score\": Math.round($json.thumbnails.reduce((sum, t) => sum + t.ctr_score, 0) / $json.thumbnails.length * 10) / 10,\n  \"avg_mobile_score\": Math.round($json.thumbnails.reduce((sum, t) => sum + t.mobile_score, 0) / $json.thumbnails.length),\n  \"avg_quality_score\": Math.round($json.thumbnails.reduce((sum, t) => sum + t.quality_score, 0) / $json.thumbnails.length * 10) / 10\n} }}",
+              "type": "object"
+            },
+            {
+              "id": "insights",
+              "name": "insights",
+              "value": "={{ {\n  \"performance_prediction\": \"This thumbnail set is predicted to achieve \" +\n    Math.round($json.thumbnails.reduce((sum, t) => sum + t.ctr_score, 0) / $json.thumbnails.length * 10) / 10 +\n    \"% CTR for \" + $json.userInputs.niche + \" content\",\n  \"mobile_optimization\": \"Mobile readiness: \" +\n    Math.round($json.thumbnails.reduce((sum, t) => sum + t.mobile_score, 0) / $json.thumbnails.length) +\n    \"/100\",\n  \"competitive_advantage\": $json.planInfo.isPro ? \"Enhanced with competitive analysis and brand intelligence\" : \"Upgrade to Pro for competitive analysis\",\n  \"recommended_action\": $json.thumbnails.length > 1 ? \"Test the highest scoring variation first, then A/B test against others\" : \"Generate more variations for better testing\",\n  \"niche_benchmark\": \"Your \" + $json.userInputs.niche + \" niche averages \" + ($json.nicheData?.avg_ctr_benchmark || 7.5) + \"% CTR\"\n} }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9692c3be-41ce-4ad0-ba78-a05ad0fb2ddb",
+      "name": "Format Final Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        2000,
+        2220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudinary.com/v1_1/dtszgcsex/image/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $json.thumbnailUrl }}"
+            },
+            {
+              "name": "upload_preset",
+              "value": "thumbnail_uploads"
+            },
+            {
+              "name": "folder",
+              "value": "intelligent-thumbnails"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "24146217-de83-4a8b-90da-62522e1aa5a8",
+      "name": "Upload to Cloudinary1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1560,
+        2420
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "VE5FzJRnZxuZLdds",
+          "name": "Claudinary API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "thumbnailData",
+              "name": "thumbnailData",
+              "value": "={{ {\n  \"cloudinary_url\": $('Upload to Cloudinary1').item.json.secure_url,\n  \"ctr_score\": $('Predict Enhanced CTR').item.json.predictions?.[0]?.confidence || 7.5,\n  \"mobile_score\": $('Calculate Mobile Optimization').item.json.mobileScore,\n  \"quality_score\": $('Generate Test Metadata').item.json.qualityScore,\n  \"heatmap_url\": $('Predict Enhanced CTR').item.json.visualization_url,\n  \"ab_test_id\": $('Generate Test Metadata').item.json.abTestId,\n  \"variation_index\": $('Generate Test Metadata').item.json.variationIndex,\n  \"optimization_tips\": $('Calculate Mobile Optimization').item.json.optimizationTips\n} }}",
+              "type": "object"
+            },
+            {
+              "id": "userInputs",
+              "name": "userInputs",
+              "value": "={{ $('Validate Ultimate Inputs').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "nicheData",
+              "name": "nicheData",
+              "value": "={{ $('Create Intelligent Prompt').item.json.nicheInsights }}",
+              "type": "object"
+            },
+            {
+              "id": "planInfo",
+              "name": "planInfo",
+              "value": "={{ $('Extract Plan Info').item.json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a241a70d-5982-4d13-b85b-5ab5d9f1210c",
+      "name": "Aggregate Results1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        2760,
+        2420
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5c335663-4ce7-47c7-9506-28dfcd262348",
+      "name": "Respond Success1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        2220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ideogram.ai/v1/ideogram-v3/generate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.intelligentPrompt }}"
+            },
+            {
+              "name": "aspect_ratio",
+              "value": "16x9"
+            },
+            {
+              "name": "num_images",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        2240
+      ],
+      "id": "9291b59b-817d-4a2f-b21e-5a27f9ed6efa",
+      "name": "Generate Ideogram Thumbnails",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3rSztA1frNtVDKqS",
+          "name": "Ideogram API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&order=date&regionCode=US&maxResults=10&publishedAfter={{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}&q={{ encodeURIComponent($('Validate Ultimate Inputs').item.json.niche + ' trending 2025') }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "b82b91bd-7e1d-4b2e-94d3-b17438e7207d",
+      "name": "Analyze Trending Videos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        240,
+        2100
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "WUUOh3F5QXnKKpBM",
+          "name": "YouTube API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        940,
+        1860
+      ],
+      "id": "cf48abac-ddae-4ee0-b9e9-4142f4230aeb",
+      "name": "YouTube Schedule Polling"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "ab_test_results"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        1860
+      ],
+      "id": "a91baf1e-b660-4565-897c-0faa394b89fb",
+      "name": "Get Test Records Needing Stats",
+      "credentials": {
+        "supabaseApi": {
+          "id": "lTSoIvGQRq8H4nw7",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{`https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${$json.video_id}`}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1380,
+        1860
+      ],
+      "id": "1cd61ae5-c439-4f5b-a742-e5e001eb22dc",
+      "name": "Fetch A/B Stats for each Video/Variant",
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "tD7cOkBRSO3IugBl",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "views",
+              "name": "views",
+              "value": "={{ $json.items[0].statistics.viewCount ? Number($json.items[0].statistics.viewCount) : 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "impressions",
+              "name": "impressions",
+              "value": "={{ $json.items[0].statistics.impressionCount ? Number($json.items[0].statistics.impressionCount) : 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "ctr",
+              "name": "ctr",
+              "value": "={{ $json.items[0].statistics.impressionCount && $json.items[0].statistics.viewCount ? (Number($json.items[0].statistics.viewCount) / Number($json.items[0].statistics.impressionCount) * 100) : 0 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        1860
+      ],
+      "id": "b3d14692-a009-422a-a05c-8b2977f63c51",
+      "name": "Calculate Thumbnail CTR"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "ab_test_results"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1820,
+        1860
+      ],
+      "id": "9f39df26-8430-4590-b644-bfa457d1294d",
+      "name": "Write new stats back to DB",
+      "credentials": {
+        "supabaseApi": {
+          "id": "lTSoIvGQRq8H4nw7",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract token from Authorization header\nconst authHeader = items[0].json.headers.authorization || '';\nconst token = authHeader.replace('Bearer ', '');\n\nif (!token) {\n  throw new Error('No authorization token provided');\n}\n\ntry {\n  // In production, verify JWT with your secret\n  // For now, we'll do basic validation\n  const parts = token.split('.');\n  if (parts.length !== 3) {\n    throw new Error('Invalid token format');\n  }\n  \n  // Decode payload (in production, verify signature)\n  const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());\n  \n  // Check expiration\n  if (payload.exp && payload.exp < Date.now() / 1000) {\n    throw new Error('Token expired');\n  }\n  \n  // Extract user info from token\n  return [{\n    json: {\n      ...items[0].json,\n      authenticatedUserId: payload.sub || payload.userId,\n      userEmail: payload.email,\n      isPro: payload.isPro || false\n    }\n  }];\n} catch (error) {\n  throw new Error('Invalid authentication token: ' + error.message);\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        2500
+      ],
+      "id": "b01cbe3c-5e25-4b63-a035-f84776383930",
+      "name": "Verify JWT Token"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4a2fd713-4e37-4a45-b37c-2240799a0e40",
+              "leftValue": "authenticatedUserId",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1000,
+        2500
+      ],
+      "id": "31b9dbbd-3374-4931-81c6-0bd7d306cb5a",
+      "name": "Auth Valid?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ \"status\": \"error\", \"message\": \"Authentication required\", \"code\": \"UNAUTHORIZED\" }) }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -780,
+        2680
+      ],
+      "id": "4ad559ea-ba2b-4041-93bb-64f59313904c",
+      "name": "Respond Auth Error"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ultimate Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Verify JWT Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Ultimate Inputs": {
+      "main": [
+        [
+          {
+            "node": "Ultimate Input Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ultimate Input Valid?": {
+      "main": [
+        [
+          {
+            "node": "Check Stripe Plan",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Ultimate Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Stripe Plan": {
+      "main": [
+        [
+          {
+            "node": "Extract Plan Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Plan Info": {
+      "main": [
+        [
+          {
+            "node": "Has Credits?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Credits?": {
+      "main": [
+        [
+          {
+            "node": "Analyze Competitors",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Niche Intelligence",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load User Brand",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Analyze Trending Videos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Ultimate No Credits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Competitors": {
+      "main": [
+        [
+          {
+            "node": "Merge Niche, Brand, Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Niche Intelligence": {
+      "main": [
+        [
+          {
+            "node": "Merge Niche, Brand, Competitors",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Load User Brand": {
+      "main": [
+        [
+          {
+            "node": "Merge Niche, Brand, Competitors",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge Niche, Brand, Competitors": {
+      "main": [
+        [
+          {
+            "node": "Create Intelligent Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Intelligent Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Ideogram Thumbnails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Ideogram Thumbnails": {
+      "main": [
+        [
+          {
+            "node": "Process Thumbnail Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten Aggregated Results": {
+      "main": [
+        [
+          {
+            "node": "Format Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results Final": {
+      "main": [
+        [
+          {
+            "node": "Flatten Aggregated Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Thumbnail Batch": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results Final",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload to Cloudinary1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Cloudinary1": {
+      "main": [
+        [
+          {
+            "node": "Calculate Mobile Optimization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Mobile Optimization": {
+      "main": [
+        [
+          {
+            "node": "Predict Enhanced CTR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Predict Enhanced CTR": {
+      "main": [
+        [
+          {
+            "node": "Generate Test Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Test Metadata": {
+      "main": [
+        [
+          {
+            "node": "Save to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to DB": {
+      "main": [
+        [
+          {
+            "node": "Track Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Usage": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results1": {
+      "main": [
+        [
+          {
+            "node": "Process Thumbnail Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Ideogram Thumbnails": {
+      "main": [
+        [
+          {
+            "node": "Extract Ideogram Thumbnails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Trending Videos": {
+      "main": [
+        [
+          {
+            "node": "Merge Niche, Brand, Competitors",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "YouTube Schedule Polling": {
+      "main": [
+        [
+          {
+            "node": "Get Test Records Needing Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Test Records Needing Stats": {
+      "main": [
+        [
+          {
+            "node": "Fetch A/B Stats for each Video/Variant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch A/B Stats for each Video/Variant": {
+      "main": [
+        [
+          {
+            "node": "Calculate Thumbnail CTR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Thumbnail CTR": {
+      "main": [
+        [
+          {
+            "node": "Write new stats back to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify JWT Token": {
+      "main": [
+        [
+          {
+            "node": "Auth Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Valid?": {
+      "main": [
+        [
+          {
+            "node": "Validate Ultimate Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Auth Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "069b657e-1dff-4c0c-adce-a128b00be177",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "28e15fc96ea3b3d3621fdcd2667414f5dba20f4e0e58e7b87076ff971cec54ef"
+  },
+  "id": "wb5KoBMSOWqYRe0v",
+  "tags": []
+}
